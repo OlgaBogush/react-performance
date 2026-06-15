@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react';
+import { List, useDynamicRowHeight } from 'react-window';
 
 import type { Country } from '../../types';
-import { CountryCard } from '../country-card/country-card';
 import { getPopulationForYear, createYearDataMap } from '../../utils/data-transformers';
+import { Row } from '../country-row/country-row';
 
 import styles from './country-list.module.css';
 
@@ -28,7 +29,9 @@ export const CountryList = memo(
     sortOrder,
   }: CountryListProps) => {
     const filteredCountries = useMemo(() => {
-      return countries
+      const array = countries.map((c) => ({ ...c, yearDataMap: createYearDataMap(c.data) }));
+
+      return array
         .filter((c) => {
           const matchesSearch = c.id.toLowerCase().includes(searchQuery.toLowerCase());
           const matchesRegion = !selectedRegion || c.data.some((d) => d.region === selectedRegion);
@@ -38,23 +41,30 @@ export const CountryList = memo(
           if (sortField === 'name') {
             return sortOrder === 'asc' ? a.id.localeCompare(b.id) : b.id.localeCompare(a.id);
           } else {
-            const popA = getPopulationForYear(createYearDataMap(a.data), selectedYear) || 0;
-            const popB = getPopulationForYear(createYearDataMap(b.data), selectedYear) || 0;
+            const popA = getPopulationForYear(a.yearDataMap, selectedYear) || 0;
+            const popB = getPopulationForYear(b.yearDataMap, selectedYear) || 0;
+
             return sortOrder === 'asc' ? popA - popB : popB - popA;
           }
         });
     }, [countries, searchQuery, selectedRegion, sortField, sortOrder, selectedYear]);
 
+    const dynamicRowHeight = useDynamicRowHeight({
+      defaultRowHeight: 296,
+    });
+
     return (
       <div className={styles.countryList}>
-        {filteredCountries.map((country) => (
-          <CountryCard
-            key={country.id}
-            country={country}
-            selectedYear={selectedYear}
-            selectedColumns={selectedColumns}
-          />
-        ))}
+        <List
+          rowComponent={Row}
+          rowCount={filteredCountries.length}
+          rowHeight={dynamicRowHeight}
+          rowProps={{
+            countries: filteredCountries,
+            selectedYear,
+            selectedColumns,
+          }}
+        />
       </div>
     );
   }
